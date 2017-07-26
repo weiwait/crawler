@@ -1,0 +1,11 @@
+{
+	"name": "weiwait/crawler",
+	"description": "the curl crawler",
+	"license": "MIT",
+	"type": "project",
+	"require": {
+		"php": ">=7.0.0",
+		"guzzlehttp/guzzle": "6.*",
+		"imangazaliev/didom": "^1.10"
+	}
+}
