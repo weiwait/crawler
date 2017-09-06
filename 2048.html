@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>2048</title>
+    <style>
+        td {
+            width: 80px;
+            height: 80px;
+            border: 1px solid #ccc;
+            text-align: center;
+            line-height: 80px;
+        }
+        table {
+            margin: 0 auto;
+            border-collapse: collapse;
+        }
+    </style>
+</head>
+<body>
+<table>
+    <tbody>
+
+    </tbody>
+</table>
+<script type="text/javascript">
+    (function() {
+        var data2 = [
+            ['', '', '', ''],
+            ['', '', '', ''],
+            ['', '', '', ''],
+            ['', '', '', '']
+        ];
+        function nullValue() {
+            var nullValues = [];
+            data2.forEach(function(value, index) {
+                value.forEach(function(value2, index2) {
+                    if (value2 === '') {
+                        nullValues.push([index, index2]);
+                    }
+                })
+            });
+            return nullValues;
+        }
+
+        function creator()
+        {
+            var nullValues = nullValue();
+            if (!nullValues.length) {
+                if (judge()) {
+                    alert('game over!');
+                    window.location.reload();
+                }
+                return;
+            }
+            var index = ran0215(nullValues.length - 1);
+            data2[nullValues[index][0]][nullValues[index][1]] = ran2or4();
+            render(data2);
+        }
+
+        function judge()
+        {
+            for (var y = 0; y < 4; y++) {
+                for (var x = 0; x < 4; x++) {
+                    if (data2[y + 1] !== undefined) {
+                        if (data2[y][x] === data2[y + 1][x]) {
+                            return false;
+                        }
+                    }
+                    if (data2[y - 1] !== undefined) {
+                        if (data2[y - 1][x] === data2[y][x]) {
+                            return false;
+                        }
+                    }
+                    if (data2[y][x + 1] !== undefined) {
+                        if (data2[y][x] === data2[y][x + 1]) {
+                            return false;
+                        }
+                    }
+                    if (data2[y][x - 1] !== undefined) {
+                        if (data2[y][x] === data2[y][x - 1]) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
+        function ran2or4()
+        {
+            return Math.random() > 0.5 ? 4 : 2;
+        }
+
+        function ran0215(max)
+        {
+            return Math.round(Math.random() * max);
+        }
+
+        function move(direction)
+        {
+            var render = false;
+            switch (direction) {
+                case 'up':
+                    var lock = [];
+                    for (var y = 1; y < 4; y++) {
+                        for (var x = 0; x < 4; x++) {
+                            if (data2[y][x] !== '') {
+                                for (var z = 1; z <= y; z++) {
+                                    if (data2[y - z] === undefined) {
+                                        break;
+                                    }
+                                    if (data2[y - z][x] === '') {
+                                        data2[y - z][x] = data2[y - z + 1][x];
+                                        data2[y - z + 1][x] = '';
+                                        render = true;
+                                    }
+                                    if (data2[y - z][x] === data2[y - z + 1][x]) {
+                                        var lockLength = lock.length;
+                                        for (var l = 0; l <= lockLength; l++) {
+                                            if (lock[l] !== "" + y - z + "" + x + "") {
+                                                data2[y - z][x] = data2[y - z][x] + data2[y - z + 1][x];
+                                                data2[y - z + 1][x] = '';
+                                                lock.push("" + y - z + "" + x + "");
+                                                render = true;
+                                                break;
+                                            }
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    break;
+                case 'down':
+                    var downLock = [];
+                    for (var downY = 2; downY >= 0; downY--) {
+                        for (var downX = 0; downX < 4; downX++) {
+                            if (data2[downY][downX] !== '') {
+                                for (var downZ = 1; downZ <= 3; downZ++) {
+                                    if (data2[downY + downZ] === undefined) {
+                                        break;
+                                    }
+                                    if (data2[downY + downZ][downX] === '') {
+                                        data2[downY + downZ][downX] = data2[downY + downZ - 1][downX];
+                                        data2[downY + downZ - 1][downX] = '';
+                                        render = true;
+                                    }
+                                    if (data2[downY + downZ][downX] === data2[downY + downZ - 1][downX]) {
+                                        var downLockLength = downLock.length;
+                                        for (var l = 0; l <= downLockLength; l++) {
+                                            if (downLock[l] !== "" + downY + downZ + "" + downX + "") {
+                                                data2[downY + downZ][downX] = data2[downY + downZ][downX] + data2[downY + downZ - 1][downX];
+                                                data2[downY + downZ - 1][downX] = '';
+                                                downLock.push("" + downY + downZ + "" + downX + "");
+                                                render = true;
+                                                break;
+                                            }
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    break;
+                case 'left':
+                    var leftLock = [];
+                    for (var leftX = 1; leftX < 4; leftX++) {
+                        for (var leftY = 0; leftY < 4; leftY++) {
+                            if (data2[leftY][leftX] !== '') {
+                                for (var leftZ = 1; leftZ <= leftX; leftZ++) {
+                                    if (data2[leftY][leftX - leftZ] !== undefined) {
+                                        if (data2[leftY][leftX - leftZ] === '') {
+                                            data2[leftY][leftX - leftZ] = data2[leftY][leftX - leftZ + 1];
+                                            data2[leftY][leftX - leftZ + 1] = '';
+                                            render = true;
+                                        }
+                                        if (data2[leftY][leftX - leftZ] === data2[leftY][leftX - leftZ + 1]) {
+                                            var leftLockLength = leftLock.length;
+                                            for (var l = 0; l <= leftLockLength; l++) {
+                                                if (leftLock[l] !== "" + leftX + leftZ + "" + leftY + "") {
+                                                    data2[leftY][leftX - leftZ] = data2[leftY][leftX - leftZ] + data2[leftY][leftX - leftZ + 1];
+                                                    data2[leftY][leftX - leftZ + 1] = '';
+                                                    leftLock.push("" + leftX + leftZ + "" + leftY + "");
+                                                    render = true;
+                                                    break;
+                                                }
+                                            }
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    break;
+                case 'right':
+                    var rightLock = [];
+                    for (var rightX = 3; rightX >= 0; rightX--) {
+                        for (var rightY = 0; rightY < 4; rightY++) {
+                            if (data2[rightY][rightX] !== '') {
+                                for (var rightZ = 1; rightZ < 4; rightZ++) {
+                                    if (data2[rightY][rightX + rightZ] !== undefined) {
+                                        if (data2[rightY][rightX + rightZ] === '') {
+                                            data2[rightY][rightX + rightZ] = data2[rightY][rightX + rightZ - 1];
+                                            data2[rightY][rightX + rightZ - 1] = '';
+                                            render = true;
+                                        }
+                                        if (data2[rightY][rightX + rightZ] === data2[rightY][rightX + rightZ - 1]) {
+                                            var rightLockLength = rightLock.length;
+                                            for (var l = 0; l <= rightLockLength; l++) {
+                                                if (rightLock[l] !== "" + rightX + rightZ + "" + rightY + "") {
+                                                    data2[rightY][rightX + rightZ] = data2[rightY][rightX + rightZ] + data2[rightY][rightX + rightZ - 1];
+                                                    data2[rightY][rightX + rightZ - 1] = '';
+                                                    rightLock.push("" + rightX + rightZ + "" + rightY + "");
+                                                    render = true;
+                                                    break;
+                                                }
+                                            }
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    break;
+            }
+            if(render) {
+                creator();
+            } else {
+                judge();
+            }
+        }
+
+        function initialize()
+        {
+            creator();
+            creator();
+            render(data2);
+            document.onkeydown = function (e) {
+                switch (e.keyCode) {
+                    case 37:
+                        move('left');
+                        break;
+                    case 38:
+                        move('up');
+                        break;
+                    case 39:
+                        move('right');
+                        break;
+                    case 40:
+                        move('down');
+                        break;
+                }
+            };
+        }
+
+        function render(data)
+        {
+            var target = document.querySelector('tbody');
+            var content = '';
+            for (var i = 0; i < data.length; i++) {
+                content += '<tr>';
+                for (var j = 0; j < data[i].length; j++) {
+                    content += '<td>' + data[i][j] + '</td>';
+                }
+                content += '</tr>';
+            }
+            target.innerHTML = content;
+        }
+
+        initialize();
+    })();
+</script>
+</body>
+</html>
