@@ -5,7 +5,6 @@ namespace spider;
 use DiDom\Document;
 use DiDom\Element;
 use GuzzleHttp\Client;
-use PhpOffice\PhpSpreadsheet\Exception;
 
 /**
  * Created by PhpStorm.
@@ -18,18 +17,31 @@ class SpiderClass
 {
     protected $HttpClient;
     protected $Document;
+    private $previousUrl;
 
     public function __construct()
     {
+        if (file_exists(__DIR__ . '/page.txt')) {
+            unlink(__DIR__ . '/page.txt');
+        }
         $this->HttpClient = new Client();
         $this->Document = new Document();
     }
 
-    public function spider($url, $select, $next)
+    public function spider($url, $select, $next, $chapterSelector)
     {
-        $result = $this->HttpClient->request('GET', $url)->getBody();
-        $content = mb_convert_encoding($result, 'UTF-8');
+        $result = $this->HttpClient->request('GET', $url)->getBody()->getContents();
+        if (null == json_encode($result)) {
+            $content = mb_convert_encoding($result, 'UTF-8', 'GBK');
+        } else {
+            $content = mb_convert_encoding($result, 'UTF-8');
+        }
         $document = $this->Document->loadHtml($content);
+        if (false !== $chapterSelector) {
+            $chapter = $document->find($chapterSelector);
+            $chapter = $chapter[0]->text();
+            file_put_contents(__DIR__ . '/page.txt', $chapter, FILE_APPEND);
+        }
         $text = $document->find($select);
         $text = $text[0]->text();
         $text = htmlentities($text);
@@ -39,18 +51,26 @@ class SpiderClass
         if (false === $next) {
             $uri = $this->getNext($document->find('[href]'), $url)['href'];
             if (filter_var($uri, FILTER_VALIDATE_URL)) {
-                $this->spider($uri, $select, false);
+                $this->spider($uri, $select, false, $chapterSelector);
             } else {
                 $url = $this->getUrlRoot($url) . $uri;
-                $this->spider($url, $select, false);
+                if ($url == $this->previousUrl) {
+                    die('all done');
+                }
+                $this->previousUrl = $url;
+                $this->spider($url, $select, false, $chapterSelector);
             }
         } else {
             $uri = $document->find($next)[0]->find('[href]')[0]->attributes()['href'];
             if (filter_var($uri, FILTER_VALIDATE_URL)) {
-                $this->spider($uri, $select, $next);
+                $this->spider($uri, $select, $next, $chapterSelector);
             } else {
                 $url = $this->getUrlRoot($url) . $uri;
-                $this->spider($url, $select, $next);
+                if ($url == $this->previousUrl) {
+                    die('all done');
+                }
+                $this->previousUrl = $url;
+                $this->spider($url, $select, $next, $chapterSelector);
             }
         }
     }
@@ -71,19 +91,29 @@ class SpiderClass
     public function analyzeDocument($url)
     {
         $result = $this->HttpClient->request('GET', $url)->getBody()->getContents();
-        $content = mb_convert_encoding($result, 'UTF-8');
+        if (null == json_encode($result)) {
+            $content = mb_convert_encoding($result, 'UTF-8', 'GBK');
+        } else {
+            $content = mb_convert_encoding($result, 'UTF-8');
+        }
         $Document = $this->Document->loadHtml($content);
         $bodyChildren = $Document->find('body')[0]->children();
         $nodes = $this->analyzeNode($bodyChildren);
-        $selector = $this->getContentSelector($nodes);
+        $chapter = $this->getChapterSelector($nodes);
+        if (isset($chapter['id'])) {
+            $chapter = '#' . $chapter['id'];
+        } elseif (isset($chapter['class'])) {
+            $chapter = '.' . $chapter['class'];
+        }
+        $selector = $this->getContentSelector($nodes, $Document);
         $hrefNodes = $Document->find('[href]');
         $next = $this->getNext($hrefNodes, $url);
-        if (!is_array($selector && $selector != '')) {
+        if (!is_array($selector) && $selector != '') {
             if (!is_array($next) && $next != '') {
-                $this->spider($url, '#' . $selector, '#' . $next);
+                $this->spider($url, '#' . $selector, '#' . $next, $chapter);
             }
             if (is_array($next) && key_exists('href', $next)) {
-                $this->spider($url, '#' . $selector, false);
+                $this->spider($url, '#' . $selector, false, $chapter);
             }
         }
     }
@@ -119,17 +149,64 @@ class SpiderClass
         return $selector;
     }
 
-    private function getContentSelector($nodes)
+    private function getChapterSelector($nodes)
+    {
+        foreach ($nodes as $key => $node) {
+            if ('' == $node['text']) {
+                unset($nodes[$key]);
+                continue;
+            }
+            if (mb_strlen($node['text']) > 200) {
+                unset($nodes[$key]);
+                continue;
+            }
+            if (mb_strlen($node['text']) < 4) {
+                unset($nodes[$key]);
+                continue;
+            }
+            if (!preg_match('/.*?第.*?章/', $node['text'])) {
+                unset($nodes[$key]);
+                continue;
+            }
+            if ('' == $node['id'] && '' == $node['class']) {
+                unset($nodes[$key]);
+                continue;
+            }
+        }
+        if (empty($nodes)) {
+            return false;
+        }
+        usort($nodes, function ($first, $second) {
+            $first = mb_strlen($first['text']);
+            $second = mb_strlen($second['text']);
+            if ($first == $second) {
+                return 0;
+            }
+            return $first > $second ? 1 : -1;
+        });
+        foreach ($nodes as $node) {
+            if ('' != $node['id']) {
+                return ['id' => $node['id']];
+            }
+            if ('' != $node['class']) {
+                return ['class' => $node['class']];
+            }
+        }
+        return false;
+    }
+
+    private function getContentSelector($nodes, $document)
     {
         foreach ($nodes as $key=>$node) {
             if ('' == $node['text']) {
                 unset($nodes[$key]);
+                continue;
             }
             if (!preg_match('/。|？|“|”|，/', $node['text'])) {
                 unset($nodes[$key]);
+                continue;
             }
         }
-
         usort($nodes, function ($first, $second) {
             $first = mb_strlen($first['text']);
             $second = mb_strlen($second['text']);
@@ -153,6 +230,14 @@ class SpiderClass
             $selector = current($nodes)['class'];
             if ('' != $selector) {
                 $selector = explode(' ', $selector);
+                $allOfClassSelected = [];
+                foreach ($selector as $classKey => $class) {
+                    $classSelected = $document->find('.'.$class);
+                    foreach ($classSelected as $subClassKey => $classDom) {
+                        $allOfClassSelected[$classKey][$subClassKey] = similar_text(current($nodes)['text'], $classDom->getNode()->nodeValue);
+                    }
+                }
+                print_r($allOfClassSelected);die;
             }
         }
         return $selector;
